@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Камінь, Ножиці, Папір</title>
+    <!-- Підключаємо Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            /* Використовуємо змінні кольорів Telegram для ідеальної інтеграції */
+            --tg-bg: var(--tg-theme-bg-color, #1e3c72);
+            --tg-text: var(--tg-theme-text-color, #ffffff);
+            --tg-hint: var(--tg-theme-hint-color, rgba(255,255,255,0.6));
+            --tg-button: var(--tg-theme-button-color, #4a90e2);
+            --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+            
+            --success: #2ecc71;
+            --danger: #e74c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: var(--tg-bg);
+            color: var(--tg-text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 1rem;
+        }
+
+        .score {
+            font-size: 1.6rem;
+            font-weight: bold;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .player-score { color: var(--success); }
+        .bot-score { color: var(--danger); }
+
+        .display-moves {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+            min-height: 90px;
+        }
+
+        .move-preview {
+            font-size: 3.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .vs {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--tg-hint);
+        }
+
+        .result-text {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            height: 35px;
+        }
+
+        .choices {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .btn-choice {
+            background: var(--tg-text);
+            border: none;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            font-size: 2.2rem;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-choice:active {
+            transform: scale(0.9);
+        }
+
+        .reset-btn {
+            margin-top: 20px;
+            background: transparent;
+            border: 1px solid var(--tg-hint);
+            color: var(--tg-text);
+            padding: 6px 16px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        @keyframes shake {
+            0% { transform: translateY(0); }
+            25% { transform: translateY(-10px); }
+            50% { transform: translateY(0); }
+            75% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+
+        .shaking {
+            animation: shake 0.4s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>Камінь Ножиці Папір</h1>
+
+        <div class="score-board">
+            <div>
+                Ви
+                <span id="player-score" class="score player-score">0</span>
+            </div>
+            <div>
+                Бот
+                <span id="bot-score" class="score bot-score">0</span>
+            </div>
+        </div>
+
+        <div class="display-moves">
+            <div>
+                <div id="player-move-display" class="move-preview">❓</div>
+            </div>
+            <div class="vs">VS</div>
+            <div>
+                <div id="bot-move-display" class="move-preview">❓</div>
+            </div>
+        </div>
+
+        <div id="result-message" class="result-text">Твій хід!</div>
+
+        <div class="choices">
+            <button class="btn-choice" onclick="play('✊')">✊</button>
+            <button class="btn-choice" onclick="play('✌️')">✌️</button>
+            <button class="btn-choice" onclick="play('✋')">✋</button>
+        </div>
+
+        <button class="reset-btn" onclick="resetGame()">Скинути рахунок</button>
+    </div>
+
+    <script>
+        // Ініціалізація Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand(); // Розгортаємо на весь екран
+
+        let playerScore = 0;
+        let botScore = 0;
+
+        const botChoices = ['✊', '✌️', '✋'];
+
+        const playerDisplay = document.getElementById('player-move-display');
+        const botDisplay = document.getElementById('bot-move-display');
+        const resultMessage = document.getElementById('result-message');
+        const playerScoreTxt = document.getElementById('player-score');
+        const botScoreTxt = document.getElementById('bot-score');
+
+        function play(playerChoice) {
+            // Вібровідгук Telegram (легкий клік)
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+            playerDisplay.classList.add('shaking');
+            botDisplay.classList.add('shaking');
+            resultMessage.innerText = "Удар...";
+
+            const randomIdx = Math.floor(Math.random() * botChoices.length);
+            const botChoice = botChoices[randomIdx];
+
+            setTimeout(() => {
+                playerDisplay.classList.remove('shaking');
+                botDisplay.classList.remove('shaking');
+
+                playerDisplay.innerText = playerChoice;
+                botDisplay.innerText = botChoice;
+
+                determineWinner(playerChoice, botChoice);
+            }, 400);
+        }
+
+        function determineWinner(player, bot) {
+            if (player === bot) {
+                resultMessage.innerText = "Нічия! 🤝";
+                resultMessage.style.color = "var(--tg-text)";
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            } else if (
+                (player === '✊' && bot === '✌️') ||
+                (player === '✌️' && bot === '✋') ||
+                (player === '✋' && bot === '✊')
+            ) {
+                resultMessage.innerText = "Перемога! 🎉";
+                resultMessage.style.color = var(--success);
+                playerScore++;
+                playerScoreTxt.innerText = playerScore;
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            } else {
+                resultMessage.innerText = "Програш! 🤖";
+                resultMessage.style.color = var(--danger);
+                botScore++;
+                botScoreTxt.innerText = botScore;
+                if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+            }
+        }
+
+        function resetGame() {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            playerScore = 0;
+            botScore = 0;
+            playerScoreTxt.innerText = "0";
+            botScoreTxt.innerText = "0";
+            playerDisplay.innerText = "❓";
+            botDisplay.innerText = "❓";
+            resultMessage.innerText = "Твій хід!";
+            resultMessage.style.color = "var(--tg-text)";
+        }
+    </script>
+</body>
+</html>
